@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "273191817418",
+    "project_id": "gezzybuddy-77169",
+    "storage_bucket": "gezzybuddy-77169.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:273191817418:android:d2ef06890956b10df7a433",
+        "android_client_info": {
+          "package_name": "com.suleyman.gezzy_buddy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAolhK7uw75FsnNJmtt49-CIrIjJJeJkW8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:273191817418:android:3cd41c52e2471ebef7a433",
+        "android_client_info": {
+          "package_name": "com.suleyman.gezzybuddy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAolhK7uw75FsnNJmtt49-CIrIjJJeJkW8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

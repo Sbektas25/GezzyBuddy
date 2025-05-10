@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Kullanıcı kimlik doğrulaması kontrolü
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Kullanıcının kendi verilerine erişim kontrolü
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Kullanıcı profilleri
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // Seyahat planları
+    match /itineraries/{itineraryId} {
+      allow read: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || 
+         resource.data.sharedWith.hasAny([request.auth.uid]));
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Aktiviteler
+    match /activities/{activityId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+        (request.resource.data.userId == request.auth.uid);
+    }
+    
+    // Yorumlar ve değerlendirmeler
+    match /reviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Genel ayarlar ve veriler
+    match /settings/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if false;  // Sadece admin panelinden değiştirilebilir
+    }
+  }
+} 
