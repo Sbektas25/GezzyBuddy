@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/itinerary.dart';
 import '../services/map_service.dart';
 import 'plan_detail_screen.dart';
+import 'plan_creation_screen.dart';
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({Key? key}) : super(key: key);
@@ -140,7 +141,7 @@ class _PlanScreenState extends State<PlanScreen> {
                     Navigator.pushNamed(
                       context,
                       PlanDetailScreen.routeName,
-                      arguments: plan,
+                      arguments: {'plan': plan},
                     );
                   },
                   child: PlanTile(plan: plan),
@@ -152,7 +153,7 @@ class _PlanScreenState extends State<PlanScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.pushNamed(context, '/create-plan');
+          Navigator.pushNamed(context, PlanCreationScreen.routeName);
         },
         child: const Icon(Icons.add),
       ),
