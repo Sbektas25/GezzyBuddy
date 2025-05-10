@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/map_service.dart';
 import '../models/itinerary.dart';
+import 'dart:math';
 
 class PlanDetailScreen extends StatefulWidget {
   static const String routeName = '/plan-detail';
@@ -106,8 +107,9 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                   ),
                 ),
               ),
-              if (_isMapVisible)
-                _isLoadingPolylines
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: _isLoadingPolylines
                     ? const SizedBox(height: 300, child: Center(child: CircularProgressIndicator()))
                     : Container(
                         height: 300,
@@ -128,13 +130,16 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                             target: LatLng(widget.plan.items.first.latitude!, widget.plan.items.first.longitude!),
                             zoom: 12,
                           ),
-                          markers: _createMarkers(),
-                          polylines: Set<Polyline>.of(_polylines),
+                          markers: Set<Marker>.from(_harfliMarkers()),
+                          polylines: {_buildPolyline(), ..._polylines},
                           onMapCreated: (GoogleMapController controller) {
                             _mapController = controller;
                           },
                         ),
                       ),
+                crossFadeState: _isMapVisible ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 300),
+              ),
               if (_isMapVisible) const SizedBox(height: 8),
               Expanded(
                 child: ListView.separated(
@@ -142,10 +147,17 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                   separatorBuilder: (context, index) {
                     if (index < widget.plan.items.length - 1) {
                       final duration = widget.plan.items[index].travelDurationToNext;
-                      if (duration != null && duration > 0) {
+                      int? fallbackDuration;
+                      if (duration == null || duration == 0) {
+                        final a = LatLng(widget.plan.items[index].latitude!, widget.plan.items[index].longitude!);
+                        final b = LatLng(widget.plan.items[index+1].latitude!, widget.plan.items[index+1].longitude!);
+                        fallbackDuration = _calculateDuration(a, b);
+                      }
+                      final showDuration = (duration != null && duration > 0) ? duration : fallbackDuration;
+                      if (showDuration != null && showDuration > 0) {
                         return Center(
                           child: Chip(
-                            label: Text('Yol: $duration dk'),
+                            label: Text('Yol: $showDuration dk'),
                             backgroundColor: const Color(0xFFe3f2fd),
                             avatar: const Icon(Icons.directions_car, size: 18, color: Color(0xFF1976d2)),
                           ),
@@ -181,13 +193,39 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
     );
   }
 
-  Set<Marker> _createMarkers() {
-    return widget.plan.items.map((activity) {
-      return Marker(
-        markerId: MarkerId(activity.id),
-        position: LatLng(activity.latitude!, activity.longitude!),
-        infoWindow: InfoWindow(title: activity.title),
-      );
-    }).toSet();
+  List<Marker> _harfliMarkers() {
+    final labels = List.generate(widget.plan.items.length, (i) => String.fromCharCode(65 + i));
+    return [
+      for (var i = 0; i < widget.plan.items.length; i++)
+        Marker(
+          markerId: MarkerId('m$i'),
+          position: LatLng(widget.plan.items[i].latitude!, widget.plan.items[i].longitude!),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: InfoWindow(title: '${labels[i]}: ${widget.plan.items[i].title}'),
+        )
+    ];
   }
+
+  Polyline _buildPolyline() {
+    return Polyline(
+      polylineId: PolylineId('route'),
+      points: widget.plan.items.map((a) => LatLng(a.latitude!, a.longitude!)).toList(),
+      color: Colors.blue,
+      width: 5,
+    );
+  }
+
+  int? _calculateDuration(LatLng a, LatLng b, {double kmh = 50}) {
+    const R = 6371000;
+    final dLat = _toRad(b.latitude - a.latitude);
+    final dLng = _toRad(b.longitude - a.longitude);
+    final lat1 = _toRad(a.latitude), lat2 = _toRad(b.latitude);
+    final hav = sin(dLat/2)*sin(dLat/2) + sin(dLng/2)*sin(dLng/2)*cos(lat1)*cos(lat2);
+    final c = 2 * atan2(sqrt(hav), sqrt(1-hav));
+    final meters = R * c;
+    final hours = (meters/1000) / kmh;
+    return (hours * 60).round();
+  }
+
+  double _toRad(double deg) => deg * pi / 180;
 } 

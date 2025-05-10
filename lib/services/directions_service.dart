@@ -103,11 +103,11 @@ class DirectionsService {
     );
 
     try {
-      final response = await http.get(url);
+    final response = await http.get(url);
       print('Directions API URL: ' + url.toString());
       print('Directions API Response: ' + response.body);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
         if (data['status'] == 'OK') {
           return Directions.fromMap(data);
         } else {

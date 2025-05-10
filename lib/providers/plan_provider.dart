@@ -92,9 +92,9 @@ class PlanProvider with ChangeNotifier {
     required String accommodationName,
   }) async {
     try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
 
       _generatedPlan = await _planService.generatePlan(
         location: hotelLocation,
@@ -731,7 +731,7 @@ class PlanProvider with ChangeNotifier {
       photoUrl: '',
       rating: 0,
       reviews: 0,
-      startTime: currentTime,
+          startTime: currentTime,
       endTime: currentTime,
       timeSlot: TimeSlot.night,
       description: 'Konaklama lokasyonu',
@@ -770,21 +770,21 @@ class PlanProvider with ChangeNotifier {
   }
 
   Future<Activity> _findKahvaltiMekani(LatLng location) async {
-    final kahvaltiMekan = await findBestPlace(
+          final kahvaltiMekan = await findBestPlace(
       near: location,
       type: 'restaurant',
       excludeTypes: ['bar', 'cafe'],
-    );
+          );
 
     return Activity(
-      id: kahvaltiMekan.id,
+            id: kahvaltiMekan.id,
       placeId: kahvaltiMekan.placeId,
       name: kahvaltiMekan.name,
       address: kahvaltiMekan.address,
       latitude: kahvaltiMekan.latitude,
       longitude: kahvaltiMekan.longitude,
-      photoUrl: kahvaltiMekan.photoUrl,
-      rating: kahvaltiMekan.rating,
+            photoUrl: kahvaltiMekan.photoUrl,
+            rating: kahvaltiMekan.rating,
       reviews: kahvaltiMekan.reviews,
       startTime: kahvaltiMekan.startTime,
       endTime: kahvaltiMekan.endTime,
@@ -794,23 +794,23 @@ class PlanProvider with ChangeNotifier {
       tags: kahvaltiMekan.tags,
       type: ActivityType.breakfast,
     );
-  }
+        }
 
   Future<Activity> _findPlaj(LatLng location) async {
-    final plaj = await findBestPlace(
+          final plaj = await findBestPlace(
       near: location,
       type: 'beach',
-    );
+          );
 
     return Activity(
-      id: plaj.id,
+            id: plaj.id,
       placeId: plaj.placeId,
       name: plaj.name,
       address: plaj.address,
       latitude: plaj.latitude,
       longitude: plaj.longitude,
-      photoUrl: plaj.photoUrl,
-      rating: plaj.rating,
+            photoUrl: plaj.photoUrl,
+            rating: plaj.rating,
       reviews: plaj.reviews,
       startTime: plaj.startTime,
       endTime: plaj.endTime,
@@ -820,24 +820,24 @@ class PlanProvider with ChangeNotifier {
       tags: plaj.tags,
       type: ActivityType.beach,
     );
-  }
+        }
 
   Future<Activity> _findOglenYemegi(LatLng location) async {
-    final oglenYemek = await findBestPlace(
+          final oglenYemek = await findBestPlace(
       near: location,
       type: 'restaurant',
       excludeTypes: ['bar', 'cafe'],
-    );
+          );
 
     return Activity(
-      id: oglenYemek.id,
+            id: oglenYemek.id,
       placeId: oglenYemek.placeId,
       name: oglenYemek.name,
       address: oglenYemek.address,
       latitude: oglenYemek.latitude,
       longitude: oglenYemek.longitude,
-      photoUrl: oglenYemek.photoUrl,
-      rating: oglenYemek.rating,
+            photoUrl: oglenYemek.photoUrl,
+            rating: oglenYemek.rating,
       reviews: oglenYemek.reviews,
       startTime: oglenYemek.startTime,
       endTime: oglenYemek.endTime,
@@ -847,24 +847,24 @@ class PlanProvider with ChangeNotifier {
       tags: oglenYemek.tags,
       type: ActivityType.lunch,
     );
-  }
+        }
 
   Future<Activity> _findAksamYemegi(LatLng location) async {
-    final aksamYemek = await findBestPlace(
+          final aksamYemek = await findBestPlace(
       near: location,
       type: 'restaurant',
       excludeTypes: ['bar', 'cafe'],
-    );
+          );
 
     return Activity(
-      id: aksamYemek.id,
+            id: aksamYemek.id,
       placeId: aksamYemek.placeId,
       name: aksamYemek.name,
       address: aksamYemek.address,
       latitude: aksamYemek.latitude,
       longitude: aksamYemek.longitude,
-      photoUrl: aksamYemek.photoUrl,
-      rating: aksamYemek.rating,
+            photoUrl: aksamYemek.photoUrl,
+            rating: aksamYemek.rating,
       reviews: aksamYemek.reviews,
       startTime: aksamYemek.startTime,
       endTime: aksamYemek.endTime,
@@ -874,23 +874,23 @@ class PlanProvider with ChangeNotifier {
       tags: aksamYemek.tags,
       type: ActivityType.dinner,
     );
-  }
+        }
 
   Future<Activity> _findKafe(LatLng location) async {
-    final kafe = await findBestPlace(
+          final kafe = await findBestPlace(
       near: location,
       type: 'cafe',
-    );
+          );
 
     return Activity(
-      id: kafe.id,
+            id: kafe.id,
       placeId: kafe.placeId,
       name: kafe.name,
       address: kafe.address,
       latitude: kafe.latitude,
       longitude: kafe.longitude,
-      photoUrl: kafe.photoUrl,
-      rating: kafe.rating,
+            photoUrl: kafe.photoUrl,
+            rating: kafe.rating,
       reviews: kafe.reviews,
       startTime: kafe.startTime,
       endTime: kafe.endTime,
@@ -900,23 +900,23 @@ class PlanProvider with ChangeNotifier {
       tags: kafe.tags,
       type: ActivityType.cafe,
     );
-  }
+        }
 
   Future<Activity> _findBar(LatLng location) async {
-    final bar = await findBestPlace(
+          final bar = await findBestPlace(
       near: location,
       type: 'bar',
-    );
+          );
 
     return Activity(
-      id: bar.id,
+            id: bar.id,
       placeId: bar.placeId,
       name: bar.name,
       address: bar.address,
       latitude: bar.latitude,
       longitude: bar.longitude,
-      photoUrl: bar.photoUrl,
-      rating: bar.rating,
+            photoUrl: bar.photoUrl,
+            rating: bar.rating,
       reviews: bar.reviews,
       startTime: bar.startTime,
       endTime: bar.endTime,
@@ -953,5 +953,9 @@ class PlanProvider with ChangeNotifier {
       tags: ['kahvaltı', 'restoran'],
       type: ActivityType.breakfast,
     );
+  }
+
+  List get flattenedActivities {
+    return plans.expand((plan) => plan.items).toList();
   }
 } 

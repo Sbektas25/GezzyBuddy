@@ -203,7 +203,7 @@ class _PackageSelectionScreenState extends State<PackageSelectionScreen> {
                           runSpacing: 8,
                           children: _selectedPreferences.map((preference) {
                             return Chip(
-                              label: Text(preference),
+                              label: Text(preference, style: const TextStyle(fontSize: 12)),
                               onDeleted: () => _togglePreference(preference),
                             );
                           }).toList(),
@@ -215,9 +215,6 @@ class _PackageSelectionScreenState extends State<PackageSelectionScreen> {
                   padding: const EdgeInsets.all(16),
                   child: ElevatedButton(
                     onPressed: _createPlan,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
-                    ),
                     child: const Text('Plan Oluştur'),
                   ),
                 ),

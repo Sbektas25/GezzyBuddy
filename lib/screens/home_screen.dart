@@ -82,39 +82,39 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                     'Hoş geldin, ${user?.displayName ?? 'Misafir'}!',
                     style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+                        ),
                   const SizedBox(height: 24),
                   LocationSearchField(
                     apiKey: ApiKeys.googlePlacesApiKey,
                     hintText: 'Konaklama lokasyonunu seçin',
                     onPlaceSelected: _onPlaceSelected,
-                  ),
+                            ),
                   if (_selectedAddress != null)
-                    Padding(
+                                Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Text(
                         'Seçilen lokasyon: $_selectedAddress',
                         style: const TextStyle(color: Colors.blueGrey),
                       ),
                     ),
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _createNewPlan,
-                    style: ElevatedButton.styleFrom(
+                      style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(50),
-                    ),
+                        ),
                     child: const Text('Yeni Plan Oluştur'),
-                  ),
-                ],
+                    ),
+                  ],
               ),
-            ),
+      ),
     );
   }
 } 
