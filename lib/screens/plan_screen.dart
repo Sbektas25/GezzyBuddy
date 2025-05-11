@@ -7,6 +7,10 @@ import '../models/itinerary.dart';
 import '../services/map_service.dart';
 import 'plan_detail_screen.dart';
 import 'plan_creation_screen.dart';
+import '../models/time_slot.dart';
+import '../models/activity_type.dart';
+import '../models/day_plan.dart';
+import '../models/activity.dart';
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({Key? key}) : super(key: key);
@@ -17,7 +21,6 @@ class PlanScreen extends StatefulWidget {
 
 class _PlanScreenState extends State<PlanScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
   bool _showMap = false;
   GoogleMapController? _mapController;
 
@@ -25,10 +28,6 @@ class _PlanScreenState extends State<PlanScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // İlk yükleme
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PlanProvider>().loadPlans();
-    });
   }
 
   @override
@@ -39,22 +38,7 @@ class _PlanScreenState extends State<PlanScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _loadMorePlans();
-    }
-  }
-
-  Future<void> _loadMorePlans() async {
-    if (!_isLoadingMore) {
-      setState(() {
-        _isLoadingMore = true;
-      });
-      await context.read<PlanProvider>().loadMorePlans();
-      setState(() {
-        _isLoadingMore = false;
-      });
-    }
+    // Scroll işlemleri için gerekirse buraya eklenebilir
   }
 
   @override
@@ -69,7 +53,7 @@ class _PlanScreenState extends State<PlanScreen> {
           IconButton(
             icon: const Icon(Icons.refresh, color: Color(0xFF5c6bc0)),
             onPressed: () {
-              context.read<PlanProvider>().loadPlans();
+              // Yenileme işlemi için gerekirse buraya eklenebilir
             },
           ),
         ],
@@ -84,7 +68,7 @@ class _PlanScreenState extends State<PlanScreen> {
         ),
         child: Consumer<PlanProvider>(
           builder: (context, planProvider, child) {
-            final activities = planProvider.flattenedActivities;
+            final plans = planProvider.plans;
             return Column(
               children: [
                 const SizedBox(height: 16),
@@ -98,24 +82,23 @@ class _PlanScreenState extends State<PlanScreen> {
                     elevation: 8,
                   ),
                   onPressed: () {
-                    print('Harita butonuna basıldı, _showMap = $_showMap');
                     setState(() => _showMap = !_showMap);
                   },
                 ),
                 AnimatedCrossFade(
                   firstChild: const SizedBox.shrink(),
-                  secondChild: activities.isEmpty
+                  secondChild: plans.isEmpty
                       ? const SizedBox(height: 300)
                       : SizedBox(
                           height: 300,
                           child: GoogleMap(
                             onMapCreated: (c) => _mapController = c,
                             initialCameraPosition: CameraPosition(
-                              target: LatLng(activities.first.latitude, activities.first.longitude),
+                              target: LatLng(plans.first.activities.first.position.latitude, plans.first.activities.first.position.longitude),
                               zoom: 13,
                             ),
-                            markers: _buildMarkers(activities),
-                            polylines: {_buildPolyline(activities)},
+                            markers: _buildMarkers(plans),
+                            polylines: {_buildPolyline(plans)},
                           ),
                         ),
                   crossFadeState: _showMap ? CrossFadeState.showSecond : CrossFadeState.showFirst,
@@ -125,22 +108,14 @@ class _PlanScreenState extends State<PlanScreen> {
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: () async {
-                      await planProvider.loadPlans();
+                      // Yenileme işlemi için gerekirse buraya eklenebilir
                     },
                     child: ListView.separated(
                       controller: _scrollController,
-                      itemCount: planProvider.plans.length + (_isLoadingMore ? 1 : 0),
+                      itemCount: plans.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
-                        if (index == planProvider.plans.length) {
-                          return const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          );
-                        }
-                        final plan = planProvider.plans[index];
+                        final plan = plans[index];
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -186,23 +161,30 @@ class _PlanScreenState extends State<PlanScreen> {
     );
   }
 
-  Set<Marker> _buildMarkers(List activities) {
-    return {
-      for (var i = 0; i < activities.length; i++)
-        Marker(
-          markerId: MarkerId('m$i'),
-          position: LatLng(activities[i].latitude, activities[i].longitude),
-          infoWindow: InfoWindow(title: String.fromCharCode(65 + i)),
-        )
-    };
+  Set<Marker> _buildMarkers(List<DayPlan> plans) {
+    final activities = plans.expand((plan) => plan.activities).toList();
+    return activities.asMap().entries.map((entry) {
+      final activity = entry.value;
+      return Marker(
+        markerId: MarkerId(activity.id),
+        position: activity.position,
+        infoWindow: InfoWindow(
+          title: activity.name,
+          snippet: activity.address,
+        ),
+      );
+    }).toSet();
   }
 
-  Polyline _buildPolyline(List activities) => Polyline(
-        polylineId: PolylineId('route'),
-        points: activities.map((a) => LatLng(a.latitude, a.longitude)).toList(),
-        color: Colors.blue,
-        width: 5,
-      );
+  Polyline _buildPolyline(List<DayPlan> plans) {
+    final activities = plans.expand((plan) => plan.activities).toList();
+    return Polyline(
+      polylineId: const PolylineId('route'),
+      points: activities.map((a) => a.position).toList(),
+      color: Colors.blue,
+      width: 3,
+    );
+  }
 }
 
 // Plan detay ekranı

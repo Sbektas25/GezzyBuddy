@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:gezzy_buddy/models/time_slot.dart';
+import 'package:gezzy_buddy/models/activity_type.dart';
 
 class PackagePreferencesScreen extends StatefulWidget {
   final String packageType; // 'plaj' veya 'kulturel'

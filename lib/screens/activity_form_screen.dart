@@ -7,6 +7,8 @@ import '../models/itinerary.dart';
 import '../services/places_service.dart';
 import '../models/activity.dart';
 import '../widgets/custom_widgets.dart';
+import 'package:gezzy_buddy/models/time_slot.dart';
+import 'package:gezzy_buddy/models/activity_type.dart';
 
 class ActivityFormScreen extends StatefulWidget {
   static const routeName = '/activity-form';

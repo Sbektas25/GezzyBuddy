@@ -10,6 +10,10 @@ import '../providers/auth_provider.dart';
 import '../services/directions_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:ui' as ui;
+import 'package:gezzy_buddy/models/time_slot.dart';
+import 'package:gezzy_buddy/models/activity_type.dart';
+import '../providers/plan_provider.dart';
+import 'package:intl/intl.dart';
 
 class PlanCreationScreen extends StatefulWidget {
   static const String routeName = '/plan-creation';
@@ -53,6 +57,7 @@ class _PlanCreationScreenState extends State<PlanCreationScreen> {
   String? _error;
   GoogleMapController? _mapController;
   String? _currentPlanId;
+  List<DayPlan>? _generatedPlan;
 
   @override
   void initState() {
@@ -61,31 +66,28 @@ class _PlanCreationScreenState extends State<PlanCreationScreen> {
   }
 
   Future<void> _generatePlan() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-
-      final dayPlans = await _planService.generatePlan(
-        location: widget.location,
-        startTime: widget.startTime,
-        endTime: widget.endTime,
+      final provider = context.read<PlanProvider>();
+      await provider.createPlan(
+        location: widget.location.toString(),
+        startDate: widget.startTime,
+        endDate: widget.endTime,
         preferences: widget.preferences,
-        accommodationName: widget.accommodationName,
       );
-
       setState(() {
-        _activities = dayPlans
-            .expand((dayPlan) => dayPlan.activities)
-            .toList();
-        _updateMarkers();
-        _updateRoutes();
-        _isLoading = false;
+        _generatedPlan = provider.plans;
       });
     } catch (e) {
       setState(() {
         _error = e.toString();
+      });
+    } finally {
+      setState(() {
         _isLoading = false;
       });
     }
@@ -124,7 +126,7 @@ class _PlanCreationScreenState extends State<PlanCreationScreen> {
         text: label,
         style: const TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.bold),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     );
     textPainter.layout();
     textPainter.paint(canvas, Offset(32 - textPainter.width / 2, 32 - textPainter.height / 2));
@@ -310,9 +312,9 @@ class _PlanCreationScreenState extends State<PlanCreationScreen> {
                       const SizedBox(height: 16),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        child: activity.photoUrl.isNotEmpty
+                        child: activity.photoUrl?.isNotEmpty == true
                             ? Image.network(
-                                activity.photoUrl,
+                                activity.photoUrl ?? '',
                                 width: double.infinity,
                                 height: 180,
                                 fit: BoxFit.cover,
@@ -430,217 +432,180 @@ class _PlanCreationScreenState extends State<PlanCreationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Travel Plan'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _generatePlan,
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _handleSavePlan,
-          ),
-        ],
+        title: const Text('Plan Oluşturuluyor'),
+        backgroundColor: const Color(0xFF1a237e),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!))
-              : Column(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFe0eafc), Color(0xFFcfdef3)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: _isLoading
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: widget.location,
-                          zoom: 14,
-                        ),
-                        markers: _markers,
-                        polylines: _polylines,
-                        onMapCreated: _onMapCreated,
-                        myLocationEnabled: true,
-                        myLocationButtonEnabled: true,
-                        zoomControlsEnabled: true,
-                        mapToolbarEnabled: true,
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5c6bc0)),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Planınız oluşturuluyor...',
+                      style: TextStyle(
+                        color: Color(0xFF1a237e),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: _activities.length,
-                        separatorBuilder: (context, index) {
-                          // İki aktivite arası geçiş süresi ve ok
-                          final from = _activities[index];
-                          final to = _activities[index + 1];
-                          final duration = to.startTime.difference(from.endTime).inMinutes.abs();
-                          return Column(
-                            children: [
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.arrow_downward, color: Colors.blueGrey, size: 20),
-                                  const SizedBox(width: 4),
-                                  Chip(
-                                    label: Text('$duration dk', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    backgroundColor: Colors.blue.shade50,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                            ],
-                          );
-                        },
+                  ],
+                ),
+              )
+            : _error != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Hata: $_error',
+                          style: const TextStyle(
+                            color: Color(0xFF1a237e),
+                            fontSize: 16,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _generatePlan,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF5c6bc0),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text('Tekrar Dene'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _generatedPlan == null || _generatedPlan!.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'Plan oluşturulamadı',
+                          style: TextStyle(
+                            color: Color(0xFF1a237e),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _generatedPlan!.length,
                         itemBuilder: (context, index) {
-                          final activity = _activities[index];
-                          final isFavorite = authProvider.favoriteActivities.contains(activity.id);
-                          final markerLetter = String.fromCharCode(65 + index); // A, B, C ...
-                          return GestureDetector(
-                            onTap: () => _showActivityDetailModal(activity, markerLetter),
-                            child: Row(
+                          final dayPlan = _generatedPlan![index];
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 4,
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Zaman ve harf etiketi
-                                Column(
-                                  children: [
-                                    Text(
-                                      '${activity.startTime.hour.toString().padLeft(2, '0')}:${activity.startTime.minute.toString().padLeft(2, '0')}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey, fontSize: 16),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    CircleAvatar(
-                                      backgroundColor: Colors.blue,
-                                      child: Text(markerLetter, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 12),
-                                // Kart
-                                Expanded(
-                                  child: Card(
-                                    margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 0),
-                                    elevation: 4,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  activity.name,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                                                ),
-                                              ),
-                                              IconButton(
-                                                icon: Icon(
-                                                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                                                  color: isFavorite ? Colors.red : Colors.grey,
-                                                ),
-                                                tooltip: 'Favoriye ekle',
-                                                onPressed: () => _handleFavorite(activity),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(12),
-                                            child: activity.photoUrl.isNotEmpty
-                                                ? Image.network(
-                                                    activity.photoUrl,
-                                                    width: double.infinity,
-                                                    height: 120,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder: (context, error, stackTrace) =>
-                                                        const Icon(Icons.place, size: 48),
-                                                  )
-                                                : const Icon(Icons.place, size: 48),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            (activity.tags.contains('accommodation') || activity.type == ActivityType.start || activity.type == ActivityType.end)
-                                                ? widget.accommodationName
-                                                : activity.address,
-                                            style: const TextStyle(color: Colors.grey)),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Icon(Icons.star, color: Colors.orange, size: 18),
-                                              const SizedBox(width: 4),
-                                              Text('${activity.rating} / 5'),
-                                              const SizedBox(width: 8),
-                                              Text('(${activity.reviews} yorum)'),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              if (!(activity.tags.contains('accommodation') || activity.type == ActivityType.start || activity.type == ActivityType.end)) ...[
-                                                Icon(Icons.access_time, size: 16, color: Colors.blueGrey),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '${activity.startTime.hour.toString().padLeft(2, '0')}:${activity.startTime.minute.toString().padLeft(2, '0')} - '
-                                                  '${activity.endTime.hour.toString().padLeft(2, '0')}:${activity.endTime.minute.toString().padLeft(2, '0')}',
-                                                  style: const TextStyle(fontWeight: FontWeight.w500),
-                                                ),
-                                                const SizedBox(width: 8),
-                                              ],
-                                              Text(_turkceZamanDilimi(activity.timeSlot)),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Tooltip(
-                                                message: 'Ziyaret edildi',
-                                                child: IconButton(
-                                                  icon: Icon(
-                                                    Icons.check_circle,
-                                                    color: isFavorite ? Colors.green : Colors.grey,
-                                                  ),
-                                                  onPressed: () => _handleMarkAsVisited(activity),
-                                                ),
-                                              ),
-                                              Tooltip(
-                                                message: 'Beğen',
-                                                child: IconButton(
-                                                  icon: const Icon(Icons.thumb_up_alt_outlined, color: Colors.blue),
-                                                  onPressed: () {},
-                                                ),
-                                              ),
-                                              Tooltip(
-                                                message: 'Kaydet',
-                                                child: IconButton(
-                                                  icon: const Icon(Icons.bookmark_border, color: Colors.purple),
-                                                  onPressed: () {},
-                                                ),
-                                              ),
-                                              Tooltip(
-                                                message: 'Değerlendir',
-                                                child: IconButton(
-                                                  icon: const Icon(Icons.star_border, color: Colors.amber),
-                                                  onPressed: () => _handleRateActivity(activity),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF5c6bc0),
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: Radius.circular(16),
+                                      topRight: Radius.circular(16),
                                     ),
                                   ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Gün ${index + 1}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: dayPlan.activities.length,
+                                  itemBuilder: (context, activityIndex) {
+                                    final activity = dayPlan.activities[activityIndex];
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: const Color(0xFFe0eafc),
+                                        child: Icon(
+                                          _getActivityIcon(activity.type),
+                                          color: const Color(0xFF5c6bc0),
+                                        ),
+                                      ),
+                                      title: Text(
+                                        activity.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1a237e),
+                                        ),
+                                      ),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${DateFormat('HH:mm').format(activity.startTime)} - ${DateFormat('HH:mm').format(activity.endTime)}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF5c6bc0),
+                                            ),
+                                          ),
+                                          if (activity.photoUrl?.isNotEmpty == true)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 8),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: Image.network(
+                                                  activity.photoUrl ?? '',
+                                                  width: 80,
+                                                  height: 80,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
                           );
                         },
                       ),
-                    ),
-                  ],
-                ),
+      ),
     );
   }
 
@@ -656,6 +621,39 @@ class _PlanCreationScreenState extends State<PlanCreationScreen> {
         return 'Gece';
       default:
         return '';
+    }
+  }
+
+  IconData _getActivityIcon(ActivityType type) {
+    switch (type) {
+      case ActivityType.start:
+        return Icons.home;
+      case ActivityType.end:
+        return Icons.flag;
+      case ActivityType.accommodation:
+        return Icons.hotel;
+      case ActivityType.restaurant:
+        return Icons.restaurant;
+      case ActivityType.attraction:
+        return Icons.attractions;
+      case ActivityType.afternoon:
+        return Icons.wb_sunny;
+      case ActivityType.breakfast:
+        return Icons.breakfast_dining;
+      case ActivityType.lunch:
+        return Icons.lunch_dining;
+      case ActivityType.dinner:
+        return Icons.dinner_dining;
+      case ActivityType.beach:
+        return Icons.beach_access;
+      case ActivityType.cafe:
+        return Icons.local_cafe;
+      case ActivityType.bar:
+        return Icons.local_bar;
+      case ActivityType.night:
+        return Icons.nightlight_round;
+      case ActivityType.returnHome:
+        return Icons.home;
     }
   }
 } 

@@ -2,7 +2,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/package_selection_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -21,6 +20,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'models/itinerary.dart';
 import 'firebase_options.dart';
 import 'services/plan_service.dart';
+import 'package:gezzy_buddy/screens/new_package_selection_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,8 +42,10 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        Provider(create: (_) => PlanService()),
+        ChangeNotifierProvider(
+          create: (ctx) => PlanProvider(planService: ctx.read<PlanService>()),
+        ),
       ],
       child: const MyApp(),
     ),
@@ -61,10 +63,7 @@ class MyApp extends StatelessWidget {
           create: (ctx) => AuthProvider(),
         ),
         ChangeNotifierProvider(
-          create: (ctx) => PlanProvider(
-            planService: PlanService(),
-            authProvider: ctx.read<AuthProvider>(),
-          ),
+          create: (ctx) => LocationProvider(),
         ),
       ],
       child: MaterialApp(
@@ -96,8 +95,6 @@ class MyApp extends StatelessWidget {
           '/register': (ctx) => RegisterScreen(),
           '/home': (ctx) => HomeScreen(),
           '/plan': (ctx) => PlanScreen(),
-          SplashScreen.routeName: (_) => SplashScreen(),
-          OnboardingScreen.routeName: (_) => OnboardingScreen(),
           ProfileScreen.routeName: (_) => ProfileScreen(),
           PlanDetailScreen.routeName: (context) => PlanDetailScreen.fromArguments(
             ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>,

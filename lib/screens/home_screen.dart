@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
-import 'package_selection_screen.dart';
+import 'package:gezzy_buddy/screens/new_package_selection_screen.dart';
 import '../widgets/location_search_field.dart';
 import '../config/api_keys.dart';
 import '../services/places_service.dart';
@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PackageSelectionScreen(
+          builder: (context) => NewPackageSelectionScreen(
             location: _selectedLocation!,
             startDate: DateTime.now(),
             endDate: DateTime.now().add(const Duration(days: 3)),

@@ -3,9 +3,13 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:google_maps_flutter_platform_interface/src/types/location.dart';
 import '../models/activity.dart';
 import '../models/day_plan.dart';
 import '../config/api_keys.dart';
+import '../models/time_slot.dart';
+import '../models/activity_type.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
 
 class PlanService {
   static const String _baseUrl = 'https://maps.googleapis.com/maps/api/place';
@@ -94,21 +98,23 @@ class PlanService {
           id: _uuid.v4(),
           placeId: place['place_id'],
           name: place['name'],
-          address: place['vicinity'],
-          latitude: geometry['lat'],
-          longitude: geometry['lng'],
-          photoUrl: place['photos']?.isNotEmpty == true
-              ? '$_baseUrl/photo?maxwidth=400&photoreference=${place['photos'][0]['photo_reference']}&key=${ApiKeys.googlePlacesApiKey}'
-              : '',
-          rating: (place['rating'] ?? 0.0).toDouble(),
-          reviews: place['user_ratings_total'] ?? 0,
+          position: LatLng(
+            (geometry['lat'] as num).toDouble(),
+            (geometry['lng'] as num).toDouble(),
+          ),
+          tags: List<String>.from(place['types'] ?? []),
+          type: _getActivityType(type),
           startTime: DateTime.now(),
           endTime: DateTime.now().add(const Duration(hours: 1)),
           timeSlot: _getTimeSlot(type),
-          description: place['types']?.join(', ') ?? '',
+          photoUrl: place['photos']?.isNotEmpty == true
+              ? '$_baseUrl/photo?maxwidth=400&photoreference=${place['photos'][0]['photo_reference']}&key=${ApiKeys.googlePlacesApiKey}'
+              : null,
+          reviews: (place['user_ratings_total'] as num?)?.toInt() ?? 0,
+          rating: (place['rating'] as num?)?.toDouble() ?? 0.0,
           price: _getPriceLevel(place['price_level']),
-          tags: List<String>.from(place['types'] ?? []),
-          type: _getActivityType(type),
+          travelDurationSec: 0,
+          address: place['vicinity'] as String? ?? '',
         );
       }).toList();
     }
@@ -199,301 +205,249 @@ class PlanService {
   }
 
   Future<List<DayPlan>> generatePlan({
-    required LatLng location,
-    required DateTime startTime,
-    required DateTime endTime,
+    required String location,
+    required DateTime startDate,
+    required DateTime endDate,
     required List<String> preferences,
-    required String accommodationName,
   }) async {
-    final numberOfDays = endTime.difference(startTime).inDays + 1;
-    final plans = <DayPlan>[];
+    // ... algoritman buraya
+    return <DayPlan>[];
+  }
 
-    for (var i = 0; i < numberOfDays; i++) {
-      final currentDate = startTime.add(Duration(days: i));
-      final activities = <Activity>[];
-      final random = Random();
-      final usedPlaceIds = <String>{};
-      DateTime currentTime = DateTime(currentDate.year, currentDate.month, currentDate.day, startTime.hour, startTime.minute);
-      LatLng currentLocation = location;
+  TimeSlot _mapTimeSlot(String slotStr) {
+    switch (slotStr) {
+      case 'breakfast': return TimeSlot.breakfast;
+      case 'lunch':     return TimeSlot.lunch;
+      case 'afternoon': return TimeSlot.afternoon;
+      case 'dinner':    return TimeSlot.dinner;
+      case 'beach':     return TimeSlot.beach;
+      case 'cafe':      return TimeSlot.cafe;
+      case 'bar':       return TimeSlot.bar;
+      case 'night':     return TimeSlot.night;
+      case 'returnHome':return TimeSlot.returnHome;
+      default:          return TimeSlot.breakfast;
+    }
+  }
 
-      // Konaklama Noktası (günün başı)
+  /// Örnek: konaklama lokasyonu, tarih aralığı, seçimler
+  Future<List<DayPlan>> generateDayPlans({
+    required LatLng home,
+    required DateTime startDate,
+    required DateTime endDate,
+    required List<TimeSlot> slots,
+  }) async {
+    final days = endDate.difference(startDate).inDays + 1;
+    List<DayPlan> result = [];
+
+    for (var i = 0; i < days; i++) {
+      final dayStart = startDate.add(Duration(days: i));
+      List<Activity> activities = [];
+
+      for (var slot in slots) {
+        final act = await _selectBest(
+          from: activities.isEmpty ? home : activities.last.position,
+          slot: slot,
+          day: dayStart,
+        );
+        activities.add(act);
+      }
+
+      // dönüş aktivitesi
       activities.add(Activity(
-        id: _uuid.v4(),
-        placeId: 'accommodation',
-        name: accommodationName,
-        address: accommodationName,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        photoUrl: '',
-        rating: 0.0,
+        id: 'return_${i}',
+        placeId: 'return_${i}',
+        name: 'Dönüş',
+        position: home,
+        tags: ['return'],
+        type: ActivityType.returnHome,
+        startTime: endDate,
+        endTime: endDate,
+        timeSlot: TimeSlot.returnHome,
         reviews: 0,
-        startTime: currentTime,
-        endTime: currentTime,
-        timeSlot: TimeSlot.morning,
-        description: 'Konaklama',
-        price: 0.0,
-        tags: ['accommodation'],
-        type: ActivityType.start,
+        rating: 0,
+        price: 0,
+        travelDurationSec: 0,
+        address: '',
       ));
 
-      // Kahvaltı
-      final breakfastPlaces = await searchNearbyPlaces(
-        currentLocation,
-        'Kahvaltı',
-        2000,
-        keywords: keywordMap['Kahvaltı'],
-        types: ['bakery', 'cafe', 'restaurant'],
-      );
-      final breakfast = breakfastPlaces.firstWhereOrNull((a) => !usedPlaceIds.contains(a.placeId));
-      if (breakfast != null) {
-        final travelSec = await getTravelDuration(currentLocation, breakfast.position);
-        currentTime = DateTime(currentDate.year, currentDate.month, currentDate.day, 8, 0).add(Duration(seconds: travelSec));
-        final breakfastDuration = Duration(minutes: 45 + random.nextInt(16)); // 45-60dk
-        final breakfastEnd = currentTime.add(breakfastDuration);
-        activities.add(breakfast.copyWith(
-          startTime: currentTime,
-          endTime: breakfastEnd,
-          timeSlot: TimeSlot.breakfast,
-          type: ActivityType.breakfast,
-          travelDurationSec: travelSec > 0 ? travelSec : 600, // fallback: 10dk
-        ));
-        usedPlaceIds.add(breakfast.placeId);
-        currentTime = breakfastEnd;
-        currentLocation = breakfast.position;
-      }
-
-      // Halk Plajı
-      final publicBeachPlaces = await searchNearbyPlaces(
-        currentLocation,
-        'Halk Plajı',
-        5000,
-        keywords: keywordMap['Halk Plajı'],
-        types: ['beach'],
-      );
-      final publicBeach = publicBeachPlaces.firstWhereOrNull((a) => !usedPlaceIds.contains(a.placeId));
-      if (publicBeach != null) {
-        final travelSec = await getTravelDuration(currentLocation, publicBeach.position);
-        currentTime = DateTime(currentDate.year, currentDate.month, currentDate.day, 10, 0).add(Duration(seconds: travelSec));
-        final beachDuration = Duration(hours: 5 + random.nextInt(5)); // 5-9 saat
-        final beachEnd = currentTime.add(beachDuration);
-        activities.add(publicBeach.copyWith(
-          startTime: currentTime,
-          endTime: beachEnd,
-          timeSlot: TimeSlot.beach,
-          type: ActivityType.beach,
-          travelDurationSec: travelSec > 0 ? travelSec : 600, // fallback: 10dk
-        ));
-        usedPlaceIds.add(publicBeach.placeId);
-        currentTime = beachEnd;
-        currentLocation = publicBeach.position;
-
-        // Plajdan sonra konaklama lokasyonuna dönüş
-        var travelBackSec = await getTravelDuration(currentLocation, location);
-        if (travelBackSec == 0) travelBackSec = 600; // fallback: 10dk
-        final backStart = currentTime;
-        final backEnd = backStart.add(Duration(seconds: travelBackSec));
-        activities.add(Activity(
-          id: _uuid.v4(),
-          placeId: 'accommodation_return',
-          name: accommodationName,
-          address: accommodationName,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          photoUrl: '',
-          rating: 0.0,
-          reviews: 0,
-          startTime: backStart,
-          endTime: backEnd,
-          timeSlot: TimeSlot.morning,
-          description: 'Plajdan dönüş',
-          price: 0.0,
-          tags: ['accommodation'],
-          type: ActivityType.start,
-          travelDurationSec: travelBackSec,
-        ));
-        // 1 saat dinlenme
-        final restStart = backEnd;
-        final restEnd = restStart.add(const Duration(hours: 1));
-        activities.add(Activity(
-          id: _uuid.v4(),
-          placeId: 'accommodation_rest',
-          name: accommodationName,
-          address: accommodationName,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          photoUrl: '',
-          rating: 0.0,
-          reviews: 0,
-          startTime: restStart,
-          endTime: restEnd,
-          timeSlot: TimeSlot.morning,
-          description: 'Dinlenme ve hazırlık',
-          price: 0.0,
-          tags: ['accommodation'],
-          type: ActivityType.start,
-          travelDurationSec: 0,
-        ));
-        currentTime = restEnd;
-        currentLocation = location;
-      }
-
-      // Ücretli Plaj
-      final paidBeachPlaces = await searchNearbyPlaces(
-        currentLocation,
-        'Ücretli Plaj',
-        5000,
-        keywords: keywordMap['Ücretli Plaj'],
-        types: ['beach'],
-      );
-      final paidBeach = paidBeachPlaces.firstWhereOrNull((a) => !usedPlaceIds.contains(a.placeId));
-      if (paidBeach != null) {
-        final travelSec = await getTravelDuration(currentLocation, paidBeach.position);
-        currentTime = currentTime.add(Duration(seconds: travelSec));
-        final beachDuration = Duration(hours: 5 + random.nextInt(5));
-        final beachEnd = currentTime.add(beachDuration);
-        activities.add(paidBeach.copyWith(
-          startTime: currentTime,
-          endTime: beachEnd,
-          timeSlot: TimeSlot.beach,
-          type: ActivityType.beach,
-        ));
-        usedPlaceIds.add(paidBeach.placeId);
-        currentTime = beachEnd;
-        currentLocation = paidBeach.position;
-
-        // Plajdan sonra konaklama lokasyonuna dönüş
-        final travelBackSec = await getTravelDuration(currentLocation, location);
-        print('DEBUG: Plajdan konaklamaya yol süresi (saniye): $travelBackSec');
-        print('DEBUG: Plaj koordinat: ' + currentLocation.toString() + ', Konaklama koordinat: ' + location.toString());
-        final backStart = currentTime;
-        final backEnd = backStart.add(Duration(seconds: travelBackSec));
-        activities.add(Activity(
-          id: _uuid.v4(),
-          placeId: 'accommodation_return',
-          name: accommodationName,
-          address: accommodationName,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          photoUrl: '',
-          rating: 0.0,
-          reviews: 0,
-          startTime: backStart,
-          endTime: backEnd,
-          timeSlot: TimeSlot.morning,
-          description: 'Plajdan dönüş',
-          price: 0.0,
-          tags: ['accommodation'],
-          type: ActivityType.start,
-        ));
-        currentTime = backEnd;
-        currentLocation = location;
-      }
-
-      // Restaurant / Lokanta (Akşam Yemeği)
-      final dinnerPlaces = await searchNearbyPlaces(
-        currentLocation,
-        'Restaurant / Lokanta',
-        2000,
-        keywords: keywordMap['Restaurant / Lokanta'],
-        types: ['restaurant'],
-      );
-      final dinner = dinnerPlaces.firstWhereOrNull((a) => !usedPlaceIds.contains(a.placeId));
-      if (dinner != null) {
-        final travelSec = await getTravelDuration(currentLocation, dinner.position);
-        currentTime = DateTime(currentDate.year, currentDate.month, currentDate.day, 18, 30).add(Duration(seconds: travelSec));
-        final dinnerDuration = Duration(minutes: 60 + random.nextInt(31)); // 1-1.5 saat
-        final dinnerEnd = currentTime.add(dinnerDuration);
-        activities.add(dinner.copyWith(
-          startTime: currentTime,
-          endTime: dinnerEnd,
-          timeSlot: TimeSlot.dinner,
-          type: ActivityType.dinner,
-          travelDurationSec: travelSec > 0 ? travelSec : 600, // fallback: 10dk
-        ));
-        usedPlaceIds.add(dinner.placeId);
-        currentTime = dinnerEnd;
-        currentLocation = dinner.position;
-      }
-
-      // Kafe
-      final cafePlaces = await searchNearbyPlaces(
-        currentLocation,
-        'Kafe',
-        2000,
-        keywords: keywordMap['Kafe'],
-        types: ['cafe'],
-      );
-      final cafe = cafePlaces.firstWhereOrNull((a) => !usedPlaceIds.contains(a.placeId));
-      if (cafe != null) {
-        final travelSec = await getTravelDuration(currentLocation, cafe.position);
-        currentTime = DateTime(currentDate.year, currentDate.month, currentDate.day, 20, 0).add(Duration(seconds: travelSec));
-        final cafeDuration = Duration(hours: 1 + random.nextInt(2)); // 1-2 saat
-        final cafeEnd = currentTime.add(cafeDuration);
-        activities.add(cafe.copyWith(
-          startTime: currentTime,
-          endTime: cafeEnd,
-          timeSlot: TimeSlot.cafe,
-          type: ActivityType.cafe,
-          travelDurationSec: travelSec > 0 ? travelSec : 600, // fallback: 10dk
-        ));
-        usedPlaceIds.add(cafe.placeId);
-        currentTime = cafeEnd;
-        currentLocation = cafe.position;
-      }
-
-      // Bar
-      final barPlaces = await searchNearbyPlaces(
-        currentLocation,
-        'Bar',
-        2000,
-        keywords: keywordMap['Bar'],
-        types: ['bar'],
-      );
-      final bar = barPlaces.firstWhereOrNull((a) => !usedPlaceIds.contains(a.placeId));
-      if (bar != null) {
-        final travelSec = await getTravelDuration(currentLocation, bar.position);
-        currentTime = DateTime(currentDate.year, currentDate.month, currentDate.day, 22, 0).add(Duration(seconds: travelSec));
-        final barDuration = Duration(hours: 1 + random.nextInt(2)); // 1-2 saat
-        final barEnd = currentTime.add(barDuration);
-        activities.add(bar.copyWith(
-          startTime: currentTime,
-          endTime: barEnd,
-          timeSlot: TimeSlot.night,
-          type: ActivityType.night,
-          travelDurationSec: travelSec > 0 ? travelSec : 600, // fallback: 10dk
-        ));
-        usedPlaceIds.add(bar.placeId);
-        currentTime = barEnd;
-        currentLocation = bar.position;
-      }
-
-      // Konaklama Noktası (gün sonu)
-      activities.add(Activity(
-        id: _uuid.v4(),
-        placeId: 'accommodation_end',
-        name: accommodationName,
-        address: accommodationName,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        photoUrl: '',
-        rating: 0.0,
-        reviews: 0,
-        startTime: currentTime,
-        endTime: currentTime,
-        timeSlot: TimeSlot.night,
-        description: 'Konaklama',
-        price: 0.0,
-        tags: ['accommodation'],
-        type: ActivityType.end,
-      ));
-
-      plans.add(DayPlan(
-        date: currentDate,
+      result.add(DayPlan(
+        dayIndex: i + 1,
+        title: 'Gün ${i + 1}',
+        numberOfDays: days,
+        location: home.toString(),
         activities: activities,
       ));
     }
 
-    return plans;
+    return result;
+  }
+
+  Future<Activity> _selectBest({
+    required LatLng from,
+    required TimeSlot slot,
+    required DateTime day,
+  }) async {
+    // 1. Hangi place type?
+    String type;
+    switch (slot) {
+      case TimeSlot.breakfast:
+        type = 'cafe|bakery';
+        break;
+      case TimeSlot.lunch:
+      case TimeSlot.dinner:
+        type = 'restaurant';
+        break;
+      case TimeSlot.afternoon:
+        type = 'beach';
+        break;
+      case TimeSlot.cafe:
+        type = 'cafe';
+        break;
+      case TimeSlot.bar:
+        type = 'bar';
+        break;
+      default:
+        type = 'point_of_interest';
+    }
+
+    // 2. Arama URL'si (en yakın + yüksek rating)
+    final url = Uri.https(
+      'maps.googleapis.com',
+      '/maps/api/place/nearbysearch/json',
+      {
+        'key': ApiKeys.googlePlacesApiKey,
+        'location': '${from.latitude},${from.longitude}',
+        'rankby': 'distance',
+        'type': type,
+      },
+    );
+
+    final resp = await http.get(url);
+    if (resp.statusCode != 200) {
+      throw Exception('Places API error: ${resp.statusCode}');
+    }
+
+    final json = jsonDecode(resp.body) as Map<String, dynamic>;
+    final results = (json['results'] as List).cast<Map<String, dynamic>>();
+    if (results.isEmpty) {
+      // fallback: aynı konuma dönüş aktivitesi
+      return Activity(
+        id: 'fallback_${slot.toString()}',
+        placeId: 'fallback_${slot.toString()}',
+        name: 'No ${slot.name} found',
+        position: from,
+        tags: ['fallback'],
+        type: ActivityType.start,
+        startTime: day,
+        endTime: day,
+        timeSlot: slot,
+        reviews: 0,
+        rating: 0,
+        price: 0,
+        travelDurationSec: 0,
+        address: '',
+      );
+    }
+
+    // 3. En yüksek puanlı ilki seç
+    results.sort((a, b) {
+      final ra = (a['rating'] as num?) ?? 0;
+      final rb = (b['rating'] as num?) ?? 0;
+      return rb.compareTo(ra);
+    });
+    final place = results.first;
+
+    // 4. Başlangıç/bitiş zamanını slot'a göre ayarla
+    DateTime start, end;
+    switch (slot) {
+      case TimeSlot.breakfast:
+        start = DateTime(day.year, day.month, day.day, 8, 0);
+        end = start.add(const Duration(hours: 1));
+        break;
+      case TimeSlot.lunch:
+        start = DateTime(day.year, day.month, day.day, 12, 0);
+        end = start.add(const Duration(hours: 1));
+        break;
+      case TimeSlot.dinner:
+        start = DateTime(day.year, day.month, day.day, 18, 30);
+        end = start.add(const Duration(hours: 1));
+        break;
+      case TimeSlot.afternoon:
+        start = DateTime(day.year, day.month, day.day, 10, 30);
+        end = DateTime(day.year, day.month, day.day, 19, 0);
+        break;
+      case TimeSlot.cafe:
+        start = DateTime(day.year, day.month, day.day, 20, 0);
+        end = DateTime(day.year, day.month, day.day, 22, 0);
+        break;
+      case TimeSlot.bar:
+        start = DateTime(day.year, day.month, day.day, 22, 0);
+        end = DateTime(day.year, day.month, day.day, 24, 0);
+        break;
+      default:
+        start = day;
+        end = day;
+    }
+
+    return Activity.fromJson({
+      ...place,
+      'start': start.toIso8601String(),
+      'end': end.toIso8601String(),
+      'timeSlot': slot.toString(),
+    });
+  }
+
+  Future<List<Activity>> _getActivitiesForSlot(
+    String home,
+    TimeSlot slot,
+    DateTime date,
+    List<String> preferences,
+  ) async {
+    final activities = await _getActivitiesForTimeSlot(
+      home,
+      slot,
+      date,
+      preferences,
+    );
+
+    if (activities.isEmpty) {
+      return [
+        Activity(
+          id: const Uuid().v4(),
+          placeId: 'no_activity',
+          name: 'No ${slot.name} found',
+          position: LatLng(0, 0),
+          tags: [],
+          type: ActivityType.start,
+          startTime: date,
+          endTime: date.add(const Duration(hours: 2)),
+          timeSlot: slot,
+          reviews: 0,
+          rating: 0,
+          price: 0,
+          travelDurationSec: 0,
+          address: '',
+        ),
+      ];
+    }
+
+    return activities;
+  }
+
+  Future<List<Activity>> _getActivitiesForTimeSlot(
+    String home,
+    TimeSlot slot,
+    DateTime date,
+    List<String> preferences,
+  ) async {
+    final activities = await searchNearbyPlaces(
+      LatLng(0, 0), // TODO: Get actual location
+      slot.toString(),
+      5000,
+      keywords: preferences,
+    );
+
+    return activities;
   }
 }
 

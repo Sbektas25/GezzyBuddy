@@ -262,6 +262,21 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/home');
+                  },
+                  child: const Text(
+                    'ATLA',
+                    style: TextStyle(
+                      color: Color(0xFF1A237E),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

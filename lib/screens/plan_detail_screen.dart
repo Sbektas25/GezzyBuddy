@@ -3,6 +3,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/map_service.dart';
 import '../models/itinerary.dart';
 import 'dart:math';
+import 'package:gezzy_buddy/models/time_slot.dart';
+import 'package:gezzy_buddy/models/activity_type.dart';
 
 class PlanDetailScreen extends StatefulWidget {
   static const String routeName = '/plan-detail';

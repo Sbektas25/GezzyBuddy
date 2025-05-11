@@ -15,6 +15,13 @@ class WelcomeScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              SizedBox(height: 48),
+              Image.asset(
+                'assets/images/gezzy_logo.png',
+                width: 100,
+                height: 100,
+              ),
+              const SizedBox(height: 32),
               const Text(
                 'Kişisel Seyahat Asistanınız',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
